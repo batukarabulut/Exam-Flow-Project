@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from .models import CustomUser, Department
+from django.db import IntegrityError
 from .serializers import (
     UserSerializer, UserCreateSerializer, LoginSerializer,
     DepartmentSerializer, ChangePasswordSerializer
@@ -14,13 +15,18 @@ class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = UserCreateSerializer
     permission_classes = [permissions.AllowAny]
-    
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        try:
+            user = serializer.save()
+        except IntegrityError as e:
+            return Response({'error': 'A user with this student ID or email already exists.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
         token, created = Token.objects.get_or_create(user=user)
-        
+
         return Response({
             'user': UserSerializer(user).data,
             'token': token.key,

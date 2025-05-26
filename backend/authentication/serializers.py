@@ -38,6 +38,10 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError("Passwords don't match")
+
+        if attrs.get('role') == 'student' and not attrs.get('student_id'):
+            raise serializers.ValidationError("Student ID is required for students.")
+
         return attrs
     
     def validate_role(self, value):
@@ -48,6 +52,11 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
+
+        # student dışındaki roller için student_id'yi tamamen kaldır
+        if validated_data.get('role') != 'student':
+            validated_data.pop('student_id', None)
+
         user = CustomUser.objects.create_user(**validated_data)
         user.set_password(password)
         user.save()
