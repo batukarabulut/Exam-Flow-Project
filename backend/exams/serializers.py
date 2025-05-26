@@ -26,7 +26,7 @@ class ExamSerializer(serializers.ModelSerializer):
     course_id = serializers.IntegerField(write_only=True)
     room_id = serializers.IntegerField(write_only=True)
     is_past = serializers.BooleanField(read_only=True)
-    
+
     class Meta:
         model = Exam
         fields = [
@@ -35,19 +35,22 @@ class ExamSerializer(serializers.ModelSerializer):
             'duration_minutes', 'max_students', 'status',
             'notes', 'created_by', 'created_at', 'updated_at', 'is_past'
         ]
-    
+
     def validate(self, attrs):
-        # Validate that end_time is after start_time
+        print("[*] validate attrs:", attrs)
         if 'start_time' in attrs and 'end_time' in attrs:
             if attrs['end_time'] <= attrs['start_time']:
                 raise serializers.ValidationError("End time must be after start time")
-        
-        # Validate that exam is not in the past (for new exams)
+
         if 'date' in attrs and not self.instance:
             if attrs['date'] < timezone.now().date():
                 raise serializers.ValidationError("Cannot schedule exam in the past")
-        
+
         return attrs
+
+    def update(self, instance, validated_data):
+        print("[*] update validated_data:", validated_data)
+        return super().update(instance, validated_data)
 
 class ExamCreateSerializer(serializers.ModelSerializer):
     class Meta:

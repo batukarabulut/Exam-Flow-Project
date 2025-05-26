@@ -1,13 +1,37 @@
-# exams/views.py
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.db.models import Q
+from django.core.mail import send_mail
+from django.conf import settings
+from authentication.models import CustomUser
 from .models import Course, Exam, ExamEnrollment
 from .serializers import (
     CourseSerializer, ExamSerializer, ExamCreateSerializer,
     ExamEnrollmentSerializer, ConflictCheckSerializer
 )
+
+# 🔔 Yardımcı fonksiyon: öğrencilere e-posta gönder
+def notify_students_of_exam_change(exam):
+    print(f"[*] Notifying students for Exam ID: {exam.id}")
+    
+    department = exam.course.department
+    students = CustomUser.objects.filter(role='student', department=department)
+    print(f"[*] Found {students.count()} students in department: {department.name}")
+
+    for student in students:
+        if student.email:
+            print(f"[*] Sending to {student.email}")
+            try:
+                send_mail(
+                    subject="Sınav Takviminiz Güncellendi",
+                    message="Merhaba, bağlı olduğunuz bölümdeki sınav programında bir değişiklik yapıldı. Lütfen sistemden kontrol ediniz.",
+                    from_email=settings.EMAIL_HOST_USER,
+                    recipient_list=[student.email],
+                    fail_silently=False
+                )
+            except Exception as e:
+                print(f"[!] Email failed to {student.email}: {e}")
 
 class CourseListCreateView(generics.ListCreateAPIView):
     queryset = Course.objects.all()
@@ -47,18 +71,13 @@ class ExamListCreateView(generics.ListCreateAPIView):
         queryset = super().get_queryset()
         user = self.request.user
         
-        # Filter based on user role
         if user.is_student:
-            # Students see exams from their department
             queryset = queryset.filter(course__department=user.department)
         elif user.is_instructor:
-            # Instructors see their own exams and their department's exams
             queryset = queryset.filter(
                 Q(course__instructor=user) | Q(course__department=user.department)
             )
-        # Admins see all exams
-        
-        # Additional filters
+
         department = self.request.query_params.get('department', None)
         date_from = self.request.query_params.get('date_from', None)
         date_to = self.request.query_params.get('date_to', None)
@@ -76,7 +95,8 @@ class ExamListCreateView(generics.ListCreateAPIView):
         return queryset.order_by('date', 'start_time')
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        exam = serializer.save(created_by=self.request.user)
+        notify_students_of_exam_change(exam)  # ✔️ Yeni sınavda bildirim gönder
 
 class ExamDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Exam.objects.all()
@@ -84,9 +104,15 @@ class ExamDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated()]
+    
+    def perform_update(self, serializer):
+        exam = serializer.save()
+        notify_students_of_exam_change(exam)  # ✔️ Sınav güncellendiğinde bildir
+
+    def perform_destroy(self, instance):
+        notify_students_of_exam_change(instance)  # ✔️ Sınav silinmeden önce bildir
+        instance.delete()
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
@@ -94,15 +120,12 @@ def my_exams(request):
     user = request.user
     
     if user.is_instructor:
-        # Get exams created by this instructor
         exams = Exam.objects.filter(course__instructor=user).order_by('date', 'start_time')
     elif user.is_student:
-        # Get exams for student's enrolled courses
         enrolled_exams = ExamEnrollment.objects.filter(student=user)
         exams = [enrollment.exam for enrollment in enrolled_exams]
         exams.sort(key=lambda x: (x.date, x.start_time))
     else:
-        # Admin gets all exams
         exams = Exam.objects.all().order_by('date', 'start_time')
     
     serializer = ExamSerializer(exams, many=True)

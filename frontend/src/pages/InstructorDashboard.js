@@ -198,12 +198,16 @@ const InstructorDashboard = () => {
       }
       
       const examData = {
-        ...examForm,
-        duration_minutes: parseInt(examForm.duration_minutes),
-        max_students: parseInt(examForm.max_students),
-        course: parseInt(examForm.course),
-        room: parseInt(examForm.room)
-      };
+  exam_type: examForm.exam_type,
+  date: examForm.date,
+  start_time: examForm.start_time,
+  end_time: examForm.end_time,
+  duration_minutes: parseInt(examForm.duration_minutes),
+  max_students: parseInt(examForm.max_students),
+  notes: examForm.notes || '',
+  course_id: parseInt(examForm.course),
+  room_id: parseInt(examForm.room),
+};
       
       console.log('Sending exam data:', examData);
       
