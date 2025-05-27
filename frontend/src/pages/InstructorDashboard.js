@@ -129,20 +129,20 @@ const InstructorDashboard = () => {
   };
 
   const handleEditExam = (exam) => {
-    setEditingExam(exam);
-    setExamForm({
-      course: exam.course?.id || '',
-      exam_type: exam.exam_type,
-      date: exam.date,
-      start_time: exam.start_time,
-      end_time: exam.end_time,
-      room: exam.room?.id || '',
-      duration_minutes: exam.duration_minutes,
-      max_students: exam.max_students,
-      notes: exam.notes || ''
-    });
-    setOpenExamDialog(true);
-  };
+  setEditingExam(exam);
+  setExamForm({
+    course: exam.course_detail?.code || '',
+    exam_type: exam.exam_type,
+    date: exam.date,
+    start_time: exam.start_time,
+    end_time: exam.end_time,
+    room: exam.room_detail?.name || '',
+    duration_minutes: exam.duration_minutes,
+    max_students: exam.max_students,
+    notes: exam.notes || ''
+  });
+  setOpenExamDialog(true);
+};
 
   const handleDeleteExam = async (examId) => {
     if (window.confirm('Are you sure you want to delete this exam?')) {
@@ -181,61 +181,53 @@ const InstructorDashboard = () => {
   };
 
   const handleExamSubmit = async () => {
-    try {
-      console.log('Submitting exam form data:', examForm);
-      
-      // Validate required fields
-      if (!examForm.course || !examForm.date || !examForm.start_time || !examForm.room) {
-        setError('Please fill in all required fields (Course, Date, Start Time, Room)');
-        return;
-      }
-      
-      // Find selected room to check capacity
-      const selectedRoom = rooms.find(room => room.id === parseInt(examForm.room));
-      if (selectedRoom && parseInt(examForm.max_students) > selectedRoom.capacity) {
-        setError(`Maximum students (${examForm.max_students}) exceeds room capacity (${selectedRoom.capacity}). Please reduce the number of students or select a larger room.`);
-        return;
-      }
-      
-      const examData = {
-  exam_type: examForm.exam_type,
-  date: examForm.date,
-  start_time: examForm.start_time,
-  end_time: examForm.end_time,
-  duration_minutes: parseInt(examForm.duration_minutes),
-  max_students: parseInt(examForm.max_students),
-  notes: examForm.notes || '',
-  course_id: parseInt(examForm.course),
-  room_id: parseInt(examForm.room),
-};
-      
-      console.log('Sending exam data:', examData);
-      
-      if (editingExam) {
-        await examAPI.updateExam(editingExam.id, examData);
-      } else {
-        const response = await examAPI.createExam(examData);
-        console.log('Exam created successfully:', response.data);
-      }
-      setOpenExamDialog(false);
-      fetchData();
-      setError('');
-    } catch (error) {
-      console.error('Full error details:', error);
-      
-      let errorMessage = 'Failed to save exam';
-      
-      if (error.response?.status === 400 || error.response?.status === 500) {
-        if (error.message && error.message.includes('Maximum students')) {
-          errorMessage = error.message;
-        } else {
-          errorMessage = 'Validation error. Please check your input values.';
-        }
-      }
-      
-      setError(errorMessage);
+  try {
+    console.log('Submitting exam form data:', examForm);
+
+    if (!examForm.course || !examForm.date || !examForm.start_time || !examForm.room) {
+      setError('Please fill in all required fields (Course, Date, Start Time, Room)');
+      return;
     }
-  };
+
+    const selectedRoom = rooms.find(room => room.name === examForm.room);
+    if (selectedRoom && parseInt(examForm.max_students) > selectedRoom.capacity) {
+      setError(`Maximum students (${examForm.max_students}) exceeds room capacity (${selectedRoom.capacity}). Please reduce the number of students or select a larger room.`);
+      return;
+    }
+
+    const examData = {
+      exam_type: examForm.exam_type,
+      date: examForm.date,
+      start_time: examForm.start_time,
+      end_time: examForm.end_time,
+      duration_minutes: parseInt(examForm.duration_minutes),
+      max_students: parseInt(examForm.max_students),
+      notes: examForm.notes || '',
+      course: examForm.course,   // 👈 artık string (örnek: "COMP101")
+      room: examForm.room        // 👈 artık string (örnek: "T312")
+    };
+
+    console.log('Sending exam data:', examData);
+
+    if (editingExam) {
+      await examAPI.updateExam(editingExam.id, examData);
+    } else {
+      const response = await examAPI.createExam(examData);
+      console.log('Exam created successfully:', response.data);
+    }
+
+    setOpenExamDialog(false);
+    fetchData();
+    setError('');
+  } catch (error) {
+    console.error('Full error details:', error);
+    let errorMessage = 'Failed to save exam';
+    if (error.response?.status === 400 || error.response?.status === 500) {
+      errorMessage = 'Validation error. Please check your input values.';
+    }
+    setError(errorMessage);
+  }
+};
 
   const getExamStatusColor = (status) => {
     switch (status) {
@@ -401,7 +393,7 @@ const InstructorDashboard = () => {
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                         <Typography variant="h6">
-                          {exam.course?.name}
+                          {exam.course_detail?.name}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                           <Chip 
@@ -423,7 +415,7 @@ const InstructorDashboard = () => {
                       </Box>
                       
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        {exam.course?.code} - {exam.exam_type}
+                        {exam.course_detail?.code} - {exam.exam_type}
                       </Typography>
                       
                       <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
@@ -443,7 +435,7 @@ const InstructorDashboard = () => {
                       <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                         <Room sx={{ mr: 1, fontSize: 18 }} />
                         <Typography variant="body2">
-                          {exam.room?.building?.code}-{exam.room?.name} (Cap: {exam.room?.capacity})
+                          {exam.room_detail?.building?.code}-{exam.room_detail?.name} (Cap: {exam.room_detail?.capacity})
                         </Typography>
                       </Box>
                       
@@ -514,16 +506,16 @@ const InstructorDashboard = () => {
               <FormControl fullWidth>
                 <InputLabel>Course</InputLabel>
                 <Select
-                  name="course"
-                  value={examForm.course}
-                  onChange={handleExamFormChange}
-                >
-                  {courses.map((course) => (
-                    <MenuItem key={course.id} value={course.id}>
-                      {course.code} - {course.name}
-                    </MenuItem>
-                  ))}
-                </Select>
+  name="course"
+  value={examForm.course}
+  onChange={handleExamFormChange}
+>
+  {courses.map((course) => (
+    <MenuItem key={course.id} value={course.code}>
+      {course.code} - {course.name}
+    </MenuItem>
+  ))}
+</Select>
               </FormControl>
             </Grid>
             
@@ -595,16 +587,16 @@ const InstructorDashboard = () => {
               <FormControl fullWidth>
                 <InputLabel>Room</InputLabel>
                 <Select
-                  name="room"
-                  value={examForm.room}
-                  onChange={handleExamFormChange}
-                >
-                  {rooms.map((room) => (
-                    <MenuItem key={room.id} value={room.id}>
-                      {room.building?.code}-{room.name} (Capacity: {room.capacity})
-                    </MenuItem>
-                  ))}
-                </Select>
+  name="room"
+  value={examForm.room}
+  onChange={handleExamFormChange}
+>
+  {rooms.map((room) => (
+    <MenuItem key={room.id} value={room.name}>
+      {room.building?.code}-{room.name} (Capacity: {room.capacity})
+    </MenuItem>
+  ))}
+</Select>
               </FormControl>
             </Grid>
             

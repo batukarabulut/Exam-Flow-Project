@@ -174,7 +174,6 @@ const RegisterPage = () => {
                 >
                   <MenuItem value="student">Student</MenuItem>
                   <MenuItem value="instructor">Instructor</MenuItem>
-                  <MenuItem value="admin">Admin</MenuItem>
                 </Select>
               </FormControl>
 
